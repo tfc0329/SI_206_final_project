@@ -142,7 +142,7 @@ def anilist_pull():
     # Make the HTTP API request for the first page
     response = requests.post('https://graphql.anilist.co', json={'query': query, 'variables': variables})
     data = json.loads(response.text)
-    print(data)
+    #print(data)
 
     # Update the variables to request the second page
     variables['page'] = 2
@@ -166,6 +166,25 @@ def createBDfile(anilist_data1, anilist_data2):
         for media in anilist_data['data']['Page']['media']:
             data_list.append((media['id'], media['idMal'], media['averageScore'], media['popularity']))
     c.execute("CREATE TABLE IF NOT EXISTS anilist_data (id INTEGER PRIMARY KEY, idMAL INTERGER, averageScore INTERGER, popularity INTERGER)")
+    conn.commit()
+    conn.close()
+
+def add_MAL_bd(malJSON):
+    conn = sqlite3.connect("anilist_data.db")
+    cursor = conn.cursor()
+
+    # Create table if it doesn't exist
+    cursor.execute('''CREATE TABLE IF NOT EXISTS mal_data
+                      (id INTEGER PRIMARY KEY, 
+                      popularity INTEGER, 
+                      mean_score REAL)''')
+
+    # Parse the JSON and insert data into the table
+    for item in json.loads(json.dumps(malJSON))['data']:
+        cursor.execute(f"INSERT INTO mal_data (id, popularity, mean_score) VALUES (?, ?, ?)",
+                       (item['id'], item['popularity'], item['mean_score']))
+
+    # Commit changes and close the connection
     conn.commit()
     conn.close()
 
@@ -195,7 +214,7 @@ def main():
     anilistJSON1, anilistJSON2 = anilist_pull()
     #print(anilistJSON)
     createBDfile(anilistJSON1, anilistJSON2)
-    #malJSON = get_mal_ranking_data()
-    #print(malJSON)
-    scatter_avg_popularity('anilist_data.db')
+    malJSON = get_mal_ranking_data()
+    add_MAL_bd(malJSON)
+    #scatter_avg_popularity('anilist_data.db')
 main()
