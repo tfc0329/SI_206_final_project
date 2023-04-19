@@ -61,16 +61,16 @@ def print_user_info(access_token):
     print(f"\n>>> Greetings {user['name']}! <<<")
 
 
-if __name__ == '__main__':
-    code_verifier = code_challenge = get_new_code_verifier()
-    print_new_authorisation_url(code_challenge)
+# if __name__ == '__main__':
+#     code_verifier = code_challenge = get_new_code_verifier()
+#     print_new_authorisation_url(code_challenge)
 
-    authorisation_code = input('Copy-paste the Authorisation Code: ').strip()
-    token = generate_new_token(authorisation_code, code_verifier)
+#     authorisation_code = input('Copy-paste the Authorisation Code: ').strip()
+#     token = generate_new_token(authorisation_code, code_verifier)
 
-    print_user_info(token['access_token'])
+#     print_user_info(token['access_token'])
 
-def get_anime_ranking_data():
+def get_mal_ranking_data():
     base_url = 'https://api.myanimelist.net/v2/anime/30230?fields=id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics'
     # -H 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImIzMTM4MjFhZjg4MzU0YTM4YmMxYWQ3NDQwMWJjM2Y3OWQ3MThhNzEzYzgwM2U3NmRhN2Y1NjllMzk0NTgzY2IyZDYzYjVjOGVhZjA3NzE3In0.eyJhdWQiOiI4YzhjMWRhYjI3MWUxYmRhNWE3Y2ZiYzVlYTFhOWRhOCIsImp0aSI6ImIzMTM4MjFhZjg4MzU0YTM4YmMxYWQ3NDQwMWJjM2Y3OWQ3MThhNzEzYzgwM2U3NmRhN2Y1NjllMzk0NTgzY2IyZDYzYjVjOGVhZjA3NzE3IiwiaWF0IjoxNjgxOTIwMDY2LCJuYmYiOjE2ODE5MjAwNjYsImV4cCI6MTY4NDUxMjA2Niwic3ViIjoiOTA1NTgwOCIsInNjb3BlcyI6W119.P0mERa0yA4WYoM90SPDOWxJ_Mt2effZGCowAShkbK4lC5P5rjJ1LNIow9noBHiXtdrrKuk74ISQFMqm4X7B0UchjqlkFDWf0BtU2ximIXgx1pb0R40MbA00taK58ViObziedGlmtcd5zGbWwtCtKc0LNP9_Fe0XuBE2Q4aq29fl9HlAuthBsvfkYzERg2F3UPeOMJEkJ5dpYsvj2umX-o_Z3eBKVApCuLO2i8JQA8yHbRp-6Ze0CKK76cx7VdvTZlvLn8-3bxas_kR8s6Y2frhP_aWp2yrR1NPq9FWjgZFyN5YBB6ZXSzp4SafphgCNTSnarS9zQJXFCwQvgwZN9zw'
 
@@ -80,3 +80,49 @@ def get_anime_ranking_data():
     print(api_call_response)
     data = json.loads(api_call_response.text)
     return data
+
+def anilist_pull():
+# Here we define our query as a multi-line string
+    query = '''
+    query {
+    Page(perPage: 100) {
+        media(sort: [SCORE_DESC]) {
+        id
+        idMal
+        averageScore
+        popularity
+        }
+    }
+    }
+    '''
+
+    # Define our query variables and values that will be used in the query request
+    variables = {
+        
+    }
+
+    url = 'https://graphql.anilist.co'
+
+    # Make the HTTP Api request
+    response = requests.post(url, json={'query': query, 'variables': variables})
+
+    return response.text
+
+def createDBfile(json_data):
+    data = json.loads(json_data)
+    conn = sqlite3.connect('anime.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS anime
+                (id INTEGER PRIMARY KEY, idMal INTEGER, averageScore INTEGER, popularity INTEGER)''')
+    for media in data['data']['Page']['media']:
+        c.execute("INSERT INTO anime VALUES (?, ?, ?, ?)", (media['id'], media['idMal'], media['averageScore'], media['popularity']))
+    conn.commit()
+    conn.close()
+
+
+def main():
+    anilistJSON = anilist_pull()
+    print(anilistJSON)
+    createDBfile(anilistJSON)
+
+main()
