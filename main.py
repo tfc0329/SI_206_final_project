@@ -3,6 +3,13 @@ import requests
 import secrets
 import sqlite3
 
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+
+
+
 client_id = '8c8c1dab271e1bda5a7cfbc5ea1a9da8'
 client_secret = '0a7a12ca30983542dea467738b9c48457dd1eba95bf8e0e9566fd45e5ad22332'
 
@@ -105,49 +112,90 @@ def get_mal_ranking_data():
     return new_dict
 
 def anilist_pull():
-# Here we define our query as a multi-line string
+    # Here we define our query as a multi-line string
     query = '''
-    query {
-    Page(perPage: 100) {
-        media(sort: [SCORE_DESC]) {
-        id
-        idMal
-        averageScore
-        popularity
+    query ($perPage: Int, $page: Int) {
+        Page(perPage: $perPage, page: $page) {
+            pageInfo {
+                total
+                perPage
+                currentPage
+                lastPage
+                hasNextPage
+            }
+            media(sort: [SCORE_DESC]) {
+                id
+                idMal
+                averageScore
+                popularity
+            }
         }
-    }
     }
     '''
 
-    # Define our query variables and values that will be used in the query request
+    # Define the variables to be used in the query request
     variables = {
-        
+        'perPage': 50,
+        'page': 1,
     }
 
-    url = 'https://graphql.anilist.co'
+    # Make the HTTP API request for the first page
+    response = requests.post('https://graphql.anilist.co', json={'query': query, 'variables': variables})
+    data = json.loads(response.text)
+    print(data)
 
-    # Make the HTTP Api request
-    response = requests.post(url, json={'query': query, 'variables': variables})
+    # Update the variables to request the second page
+    variables['page'] = 2
 
-    return response.text
+    # Make the HTTP API request for the second page
+    response = requests.post('https://graphql.anilist.co', json={'query': query, 'variables': variables})
+    data2 = json.loads(response.text)
 
-def createDBfile(json_data):
-    data = json.loads(json_data)
-    conn = sqlite3.connect('anime.db')
+    return data, data2
+
+def createBDfile(anilist_data1, anilist_data2):
+    conn = sqlite3.connect("anilist_data.db")
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS anime
-                (id INTEGER PRIMARY KEY, idMal INTEGER, averageScore INTEGER, popularity INTEGER)''')
-    for media in data['data']['Page']['media']:
-        c.execute("INSERT INTO anime VALUES (?, ?, ?, ?)", (media['id'], media['idMal'], media['averageScore'], media['popularity']))
+    c.execute('''CREATE TABLE IF NOT EXISTS anilist_data
+                 (id INTEGER PRIMARY KEY,
+                 idMal INTEGER,
+                 averageScore INTEGER,
+                 popularity INTEGER)''')
+    data_list = []
+    for anilist_data in [anilist_data1, anilist_data2]:
+        for media in anilist_data['data']['Page']['media']:
+            data_list.append((media['id'], media['idMal'], media['averageScore'], media['popularity']))
+    c.execute("CREATE TABLE IF NOT EXISTS anilist_data (id INTEGER PRIMARY KEY, idMAL INTERGER, averageScore INTERGER, popularity INTERGER)")
     conn.commit()
     conn.close()
 
+def scatter_avg_popularity(db_file):
+    conn = sqlite3.connect(db_file)
+    query = "SELECT idMAL, averageScore, popularity FROM anilist_data"
+    df = pd.read_sql_query(query, conn)
+
+    plt.style.use('dark_background')
+
+    fig, ax = plt.subplots()
+    ax.grid(True, linestyle='--')
+    ax.set_axisbelow(True)
+    ax.scatter(df["popularity"], df["averageScore"], color='red')
+    ax.set_xlabel("Popularity")
+    ax.set_ylabel("Average Score")
+    ax.set_title("Anime Scores vs Popularity")
+    
+    
+    z = np.polyfit(df["popularity"], df["averageScore"], 1)
+    p = np.poly1d(z)
+    ax.plot(df["popularity"], p(df["popularity"]), "r--")
+
+    plt.show()
 
 def main():
-    anilistJSON = anilist_pull()
-    # print(anilistJSON)
-    # createDBfile(anilistJSON)
-    mal_scoring_users_json = get_mal_ranking_data()
-    print(mal_scoring_users_json)
-
+    anilistJSON1, anilistJSON2 = anilist_pull()
+    #print(anilistJSON)
+    createBDfile(anilistJSON1, anilistJSON2)
+    #malJSON = get_mal_ranking_data()
+    #print(malJSON)
+    scatter_avg_popularity('anilist_data.db')
 main()
