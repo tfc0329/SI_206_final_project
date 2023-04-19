@@ -12,11 +12,3 @@ def get_anime_ranking_data():
     print(api_call_response)
     data = json.loads(api_call_response.text)
     return data
-
-def insert_mal_data():
-    conn = sqlite3.connect('Users/tfchen/Downloads/mal_ranking.db')
-    cur = conn.cursor
-
-    cur.execute('DROP TABLE IF EXISTS mal_ranking')
-
-print(get_anime_ranking_data())
