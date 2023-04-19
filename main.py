@@ -71,15 +71,38 @@ def print_user_info(access_token):
 #     print_user_info(token['access_token'])
 
 def get_mal_ranking_data():
-    base_url = 'https://api.myanimelist.net/v2/anime/30230?fields=id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics'
+    popularity_url = 'https://api.myanimelist.net/v2/anime/ranking?ranking_type=bypopularity&limit=100'
     # -H 'Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImIzMTM4MjFhZjg4MzU0YTM4YmMxYWQ3NDQwMWJjM2Y3OWQ3MThhNzEzYzgwM2U3NmRhN2Y1NjllMzk0NTgzY2IyZDYzYjVjOGVhZjA3NzE3In0.eyJhdWQiOiI4YzhjMWRhYjI3MWUxYmRhNWE3Y2ZiYzVlYTFhOWRhOCIsImp0aSI6ImIzMTM4MjFhZjg4MzU0YTM4YmMxYWQ3NDQwMWJjM2Y3OWQ3MThhNzEzYzgwM2U3NmRhN2Y1NjllMzk0NTgzY2IyZDYzYjVjOGVhZjA3NzE3IiwiaWF0IjoxNjgxOTIwMDY2LCJuYmYiOjE2ODE5MjAwNjYsImV4cCI6MTY4NDUxMjA2Niwic3ViIjoiOTA1NTgwOCIsInNjb3BlcyI6W119.P0mERa0yA4WYoM90SPDOWxJ_Mt2effZGCowAShkbK4lC5P5rjJ1LNIow9noBHiXtdrrKuk74ISQFMqm4X7B0UchjqlkFDWf0BtU2ximIXgx1pb0R40MbA00taK58ViObziedGlmtcd5zGbWwtCtKc0LNP9_Fe0XuBE2Q4aq29fl9HlAuthBsvfkYzERg2F3UPeOMJEkJ5dpYsvj2umX-o_Z3eBKVApCuLO2i8JQA8yHbRp-6Ze0CKK76cx7VdvTZlvLn8-3bxas_kR8s6Y2frhP_aWp2yrR1NPq9FWjgZFyN5YBB6ZXSzp4SafphgCNTSnarS9zQJXFCwQvgwZN9zw'
 
     api_call_headers = {'Authorization': 'Bearer ' + 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6ImIzMTM4MjFhZjg4MzU0YTM4YmMxYWQ3NDQwMWJjM2Y3OWQ3MThhNzEzYzgwM2U3NmRhN2Y1NjllMzk0NTgzY2IyZDYzYjVjOGVhZjA3NzE3In0.eyJhdWQiOiI4YzhjMWRhYjI3MWUxYmRhNWE3Y2ZiYzVlYTFhOWRhOCIsImp0aSI6ImIzMTM4MjFhZjg4MzU0YTM4YmMxYWQ3NDQwMWJjM2Y3OWQ3MThhNzEzYzgwM2U3NmRhN2Y1NjllMzk0NTgzY2IyZDYzYjVjOGVhZjA3NzE3IiwiaWF0IjoxNjgxOTIwMDY2LCJuYmYiOjE2ODE5MjAwNjYsImV4cCI6MTY4NDUxMjA2Niwic3ViIjoiOTA1NTgwOCIsInNjb3BlcyI6W119.P0mERa0yA4WYoM90SPDOWxJ_Mt2effZGCowAShkbK4lC5P5rjJ1LNIow9noBHiXtdrrKuk74ISQFMqm4X7B0UchjqlkFDWf0BtU2ximIXgx1pb0R40MbA00taK58ViObziedGlmtcd5zGbWwtCtKc0LNP9_Fe0XuBE2Q4aq29fl9HlAuthBsvfkYzERg2F3UPeOMJEkJ5dpYsvj2umX-o_Z3eBKVApCuLO2i8JQA8yHbRp-6Ze0CKK76cx7VdvTZlvLn8-3bxas_kR8s6Y2frhP_aWp2yrR1NPq9FWjgZFyN5YBB6ZXSzp4SafphgCNTSnarS9zQJXFCwQvgwZN9zw'}
-    api_call_response = requests.get(base_url, headers=api_call_headers)
+    api_call_popularity_response = requests.get(popularity_url, headers=api_call_headers)
 
-    print(api_call_response)
-    data = json.loads(api_call_response.text)
-    return data
+    popularity_data = json.loads(api_call_popularity_response.text)
+
+    new_dict = {}
+    item_list = []
+
+    for item in popularity_data['data']:
+
+        item_dict = {}
+
+        id = item['node']['id']
+        item_dict['id'] = id
+
+        details_url = f'https://api.myanimelist.net/v2/anime/{id}?fields=id,title,main_picture,alternative_titles,start_date,end_date,synopsis,mean,rank,popularity,num_list_users,num_scoring_users,nsfw,created_at,updated_at,media_type,status,genres,my_list_status,num_episodes,start_season,broadcast,source,average_episode_duration,rating,pictures,background,related_anime,related_manga,recommendations,studios,statistics'
+        api_call_details_response = requests.get(details_url, headers=api_call_headers)
+        details_data = json.loads(api_call_details_response.text)
+
+        num_list_users = details_data['num_list_users']
+        mean_score = details_data['mean']
+        item_dict['popularity'] = num_list_users
+        item_dict['mean_score'] = mean_score
+
+        item_list.append(item_dict)
+
+    new_dict['data'] = item_list
+
+    return new_dict
 
 def anilist_pull():
 # Here we define our query as a multi-line string
@@ -122,7 +145,9 @@ def createDBfile(json_data):
 
 def main():
     anilistJSON = anilist_pull()
-    print(anilistJSON)
-    createDBfile(anilistJSON)
+    # print(anilistJSON)
+    # createDBfile(anilistJSON)
+    mal_scoring_users_json = get_mal_ranking_data()
+    print(mal_scoring_users_json)
 
 main()
