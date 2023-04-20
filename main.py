@@ -166,6 +166,7 @@ def createBDfile(anilist_data1, anilist_data2):
         for media in anilist_data['data']['Page']['media']:
             data_list.append((media['id'], media['idMal'], media['averageScore'], media['popularity']))
     c.execute("CREATE TABLE IF NOT EXISTS anilist_data (id INTEGER PRIMARY KEY, idMAL INTERGER, averageScore INTERGER, popularity INTERGER)")
+
     conn.commit()
     conn.close()
 
@@ -190,31 +191,48 @@ def add_MAL_bd(malJSON):
 
 def scatter_avg_popularity(db_file):
     conn = sqlite3.connect(db_file)
-    query = "SELECT idMAL, averageScore, popularity FROM anilist_data"
-    df = pd.read_sql_query(query, conn)
+    query_anilist = "SELECT idMAL, averageScore, popularity FROM anilist_data"
+    query_mal = "SELECT popularity, mean_score FROM mal_data"
+    df_anilist = pd.read_sql_query(query_anilist, conn)
+    df_anilist['averageScore'] = df_anilist['averageScore'] / 10
+    df_mal = pd.read_sql_query(query_mal, conn)
+    df_mal['averageScore'] = df_mal['popularity'] * 10000
 
     plt.style.use('dark_background')
 
-    fig, ax = plt.subplots()
-    ax.grid(True, linestyle='--')
-    ax.set_axisbelow(True)
-    ax.scatter(df["popularity"], df["averageScore"], color='red')
-    ax.set_xlabel("Popularity")
-    ax.set_ylabel("Average Score")
-    ax.set_title("Anime Scores vs Popularity")
-    
-    
-    z = np.polyfit(df["popularity"], df["averageScore"], 1)
-    p = np.poly1d(z)
-    ax.plot(df["popularity"], p(df["popularity"]), "r--")
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12,6))
+    ax1.grid(True, linestyle='--')
+    ax1.set_axisbelow(True)
+    ax1.scatter(df_anilist["popularity"], df_anilist["averageScore"], color='gold')
+    ax1.set_xlabel("Popularity")
+    ax1.set_ylabel("Average Score")
+    ax1.set_title("Manga Scores vs Popularity")
+    ax1.set_ylim(6.5, 9.4)
 
+    z1 = np.polyfit(df_anilist["popularity"], df_anilist["averageScore"], 1)
+    p1 = np.poly1d(z1)
+    ax1.plot(df_anilist["popularity"], p1(df_anilist["popularity"]), "r--")
+
+    ax2.grid(True, linestyle='--')
+    ax2.set_axisbelow(True)
+    ax2.scatter(df_mal["popularity"], df_mal["mean_score"], color='blue')
+    ax2.set_xlabel("Popularity")
+    ax2.set_ylabel("Average Score")
+    ax2.set_title("Anime Scores vs Popularity")
+    ax2.set_ylim(6.5, 9.4)
+
+    z2 = np.polyfit(df_mal["popularity"], df_mal["mean_score"], 1)
+    p2 = np.poly1d(z2)
+    ax2.plot(df_mal["popularity"], p2(df_mal["popularity"]), "r--")
+
+    plt.tight_layout()
     plt.show()
 
 def main():
-    anilistJSON1, anilistJSON2 = anilist_pull()
+    #anilistJSON1, anilistJSON2 = anilist_pull()
     #print(anilistJSON)
-    createBDfile(anilistJSON1, anilistJSON2)
-    malJSON = get_mal_ranking_data()
-    add_MAL_bd(malJSON)
-    #scatter_avg_popularity('anilist_data.db')
+    #createBDfile(anilistJSON1, anilistJSON2)
+    #malJSON = get_mal_ranking_data()
+    #add_MAL_bd(malJSON)
+    scatter_avg_popularity('anilist_data.db')
 main()
