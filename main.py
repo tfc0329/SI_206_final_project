@@ -102,8 +102,10 @@ def get_mal_ranking_data():
 
         num_list_users = details_data['num_list_users']
         mean_score = details_data['mean']
+        num_episodes = details_data['num_episodes']
         item_dict['popularity'] = num_list_users
         item_dict['mean_score'] = mean_score
+        item_dict['num_episodes'] = num_episodes
 
         item_list.append(item_dict)
 
@@ -267,8 +269,8 @@ def main():
     anilistJSON1, anilistJSON2 = anilist_pull()
     print(anilistJSON1, anilistJSON2)
     createBDfile(anilistJSON1, anilistJSON2)
-    #malJSON = get_mal_ranking_data()
-    #add_MAL_bd(malJSON)
+    malJSON = get_mal_ranking_data()
+    add_MAL_bd(malJSON)
     scatter_avg_popularity('anilist_data.db')
     scatter_avg_popularity_COMBINED('anilist_data.db')
 main()
