@@ -68,14 +68,14 @@ def print_user_info(access_token):
     print(f"\n>>> Greetings {user['name']}! <<<")
 
 
-if __name__ == '__main__':
-    code_verifier = code_challenge = get_new_code_verifier()
-    print_new_authorisation_url(code_challenge)
+# if __name__ == '__main__':
+#     code_verifier = code_challenge = get_new_code_verifier()
+#     print_new_authorisation_url(code_challenge)
 
-    authorisation_code = input('Copy-paste the Authorisation Code: ').strip()
-    token = generate_new_token(authorisation_code, code_verifier)
+#     authorisation_code = input('Copy-paste the Authorisation Code: ').strip()
+#     token = generate_new_token(authorisation_code, code_verifier)
 
-    print_user_info(token['access_token'])
+#     print_user_info(token['access_token'])
 
 def get_mal_ranking_data():
     popularity_url = 'https://api.myanimelist.net/v2/anime/ranking?ranking_type=bypopularity&limit=100'
@@ -233,19 +233,19 @@ def add_data_join():
     last_id = cursor.fetchone()[0] or 0
 
     # Join mal_data and anilist_data tables on idMAL
-    query = f'''SELECT mal_data.id AS idMAL, mal_data.num_episodes, mal_data.mean_score, 
+    query = f'''INSERT INTO data_join (id, num_episodes, mean_score, episodes, averageScore)
+                SELECT mal_data.id AS idMAL, mal_data.num_episodes, mal_data.mean_score, 
                        anilist_data.episodes, anilist_data.averageScore 
-                FROM mal_data JOIN anilist_data ON mal_data.idMAL = anilist_data.idMAL 
-                WHERE mal_data.id > {last_id} ORDER BY mal_data.id LIMIT 25'''
+                FROM mal_data JOIN anilist_data ON mal_data.id = anilist_data.idMAL 
+                WHERE mal_data.id > {last_id} ORDER BY mal_data.id'''
 
     # Execute query and insert data into the table
-    for row in cursor.execute(query):
-        cursor.execute("INSERT INTO data_join (id, num_episodes, mean_score, episodes, averageScore) VALUES (?, ?, ?, ?, ?)",
-                       (row[0], row[1], row[2], row[3], row[4]))
+    cursor.execute(query)
 
     # Commit changes and close the connection
     conn.commit()
     conn.close()
+
 
 def scatter_avg_popularity_COMBINED(db_file):
     conn = sqlite3.connect(db_file)
@@ -319,14 +319,33 @@ def scatter_avg_popularity(db_file):
     plt.tight_layout()
     plt.show()
 
+def plot_data_join(db_file):
+    # Connect to database and read data_join table
+    conn = sqlite3.connect(db_file)
+    query = "SELECT num_episodes+episodes as num_total_episodes, mean_score, averageScore/10 as average_score FROM data_join"
+    df = pd.read_sql(query, conn)
+    
+    # Create scatter plot with trend line
+    g = sns.lmplot(x="mean_score", y="num_total_episodes", data=df, height=7, scatter_kws={'color': 'green'}, line_kws={'color': 'red'})
+
+    # Set plot properties
+    g.set_axis_labels("Mean Score", "Total Number of Episodes")
+    g.fig.suptitle("Relationship Between Mean Score and Total Number of Episodes")
+    g.fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+    g.ax.grid(True)
+    plt.style.use('dark_background')
+    plt.show()
+
+
 def main():
-    anilistJSON1, anilistJSON2 = anilist_pull()
+    #anilistJSON1, anilistJSON2 = anilist_pull()
     # #print(anilistJSON1, anilistJSON2)
-    createBDfile(anilistJSON1, anilistJSON2)
-    malJSON = get_mal_ranking_data()
+    #createBDfile(anilistJSON1, anilistJSON2)
+    #malJSON = get_mal_ranking_data()
     #print(malJSON)
-    add_MAL_bd(malJSON)
+    #add_MAL_bd(malJSON)
     #add_data_join()
-    #scatter_avg_popularity('anilist_data.db')
-    #scatter_avg_popularity_COMBINED('anilist_data.db')
+    scatter_avg_popularity('anilist_data.db')
+    scatter_avg_popularity_COMBINED('anilist_data.db')
+    plot_data_join('anilist_data.db')
 main()
