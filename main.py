@@ -2,6 +2,7 @@ import json
 import requests
 import secrets
 import sqlite3
+import os
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -246,6 +247,15 @@ def add_data_join():
     conn.commit()
     conn.close()
 
+def SaveJsons(json_list):
+    with open(os.path.join(os.path.dirname(__file__), "json_output.txt"), 'w') as f:
+        for json_obj in json_list:
+            if isinstance(json_obj, dict):
+                json_string = json.dumps(json_obj)
+            else:
+                json_string = json_obj
+            f.write(json_string + '\n')
+
 
 def scatter_avg_popularity_COMBINED(db_file):
     conn = sqlite3.connect(db_file)
@@ -338,14 +348,15 @@ def plot_data_join(db_file):
 
 
 def main():
-    #anilistJSON1, anilistJSON2 = anilist_pull()
-    # #print(anilistJSON1, anilistJSON2)
+    anilistJSON1, anilistJSON2 = anilist_pull()
+    #print(anilistJSON1, anilistJSON2)
     #createBDfile(anilistJSON1, anilistJSON2)
-    #malJSON = get_mal_ranking_data()
+    malJSON = get_mal_ranking_data()
     #print(malJSON)
     #add_MAL_bd(malJSON)
     #add_data_join()
-    scatter_avg_popularity('anilist_data.db')
-    scatter_avg_popularity_COMBINED('anilist_data.db')
-    plot_data_join('anilist_data.db')
+    SaveJsons([anilistJSON1, anilistJSON2, malJSON])
+    # scatter_avg_popularity('anilist_data.db')
+    # scatter_avg_popularity_COMBINED('anilist_data.db')
+    # plot_data_join('anilist_data.db')
 main()
