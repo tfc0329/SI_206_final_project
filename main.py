@@ -68,14 +68,14 @@ def print_user_info(access_token):
     print(f"\n>>> Greetings {user['name']}! <<<")
 
 
-# if __name__ == '__main__':
-#     code_verifier = code_challenge = get_new_code_verifier()
-#     print_new_authorisation_url(code_challenge)
+if __name__ == '__main__':
+    code_verifier = code_challenge = get_new_code_verifier()
+    print_new_authorisation_url(code_challenge)
 
-#     authorisation_code = input('Copy-paste the Authorisation Code: ').strip()
-#     token = generate_new_token(authorisation_code, code_verifier)
+    authorisation_code = input('Copy-paste the Authorisation Code: ').strip()
+    token = generate_new_token(authorisation_code, code_verifier)
 
-#     print_user_info(token['access_token'])
+    print_user_info(token['access_token'])
 
 def get_mal_ranking_data():
     popularity_url = 'https://api.myanimelist.net/v2/anime/ranking?ranking_type=bypopularity&limit=100'
@@ -169,7 +169,16 @@ def createBDfile(anilist_data1, anilist_data2):
     for anilist_data in [anilist_data1, anilist_data2]:
         for media in anilist_data['data']['Page']['media']:
             data_list.append((media['id'], media['idMal'], media['averageScore'], media['popularity'], media['episodes']))
-    c.execute("CREATE TABLE IF NOT EXISTS anilist_data (id INTEGER PRIMARY KEY, idMAL INTERGER, averageScore INTERGER, popularity INTERGER, episodes INTERGER)")
+
+    c.execute("SELECT MAX(id) FROM anilist_data")
+    last_id = c.fetchone()[0] or 0
+
+    num_rows_to_add = 100
+    for i in range(num_rows_to_add):
+        if i + last_id >= len(data_list):
+            break
+        c.execute("INSERT OR IGNORE INTO anilist_data (id, idMal, averageScore, popularity, episodes) VALUES (?, ?, ?, ?, ?)",
+                   (last_id+i+1, data_list[last_id+i][1], data_list[last_id+i][2], data_list[last_id+i][3], data_list[last_id+i][4]))
 
     conn.commit()
     conn.close()
@@ -180,14 +189,59 @@ def add_MAL_bd(malJSON):
 
     # Create table if it doesn't exist
     cursor.execute('''CREATE TABLE IF NOT EXISTS mal_data
-                      (id INTEGER PRIMARY KEY, 
+                      (row_id INTEGER PRIMARY KEY,
+                      id INTEGER, 
                       popularity INTEGER, 
-                      mean_score REAL)''')
+                      mean_score REAL,
+                      num_episodes INTEGER)''')
+
+    data_list = []
+    for MAL_data2 in [malJSON]:
+        for data in MAL_data2['data']:
+            data_list.append((data['id'], data['popularity'], data['mean_score'], data['num_episodes']))
+
+    # Get the last ID in the table
+    cursor.execute("SELECT MAX(row_id) FROM mal_data")
+    last_id = cursor.fetchone()[0] or 0
 
     # Parse the JSON and insert data into the table
-    for item in json.loads(json.dumps(malJSON))['data']:
-        cursor.execute(f"INSERT INTO mal_data (id, popularity, mean_score) VALUES (?, ?, ?)",
-                       (item['id'], item['popularity'], item['mean_score']))
+    num_rows_to_add = 100
+    for i in range(num_rows_to_add):
+        if i + last_id >= len(data_list):
+            break
+        cursor.execute("INSERT OR IGNORE INTO mal_data (row_id, id, popularity, mean_score, num_episodes) VALUES (?, ?, ?, ?, ?)", 
+                       ([last_id+i+1, data_list[last_id+i][0], data_list[last_id+i][1], data_list[last_id+i][2], data_list[last_id+i][3]]))
+
+    # Commit changes and close the connection
+    conn.commit()
+    conn.close()
+
+def add_data_join():
+    conn = sqlite3.connect("anilist_data.db")
+    cursor = conn.cursor()
+
+    # Create table if it doesn't exist
+    cursor.execute('''CREATE TABLE IF NOT EXISTS data_join
+                      (id INTEGER PRIMARY KEY,
+                      num_episodes INTEGER,
+                      mean_score REAL,
+                      episodes INTEGER,
+                      averageScore REAL)''')
+
+    # Get the last ID in the table
+    cursor.execute("SELECT MAX(id) FROM data_join")
+    last_id = cursor.fetchone()[0] or 0
+
+    # Join mal_data and anilist_data tables on idMAL
+    query = f'''SELECT mal_data.id AS idMAL, mal_data.num_episodes, mal_data.mean_score, 
+                       anilist_data.episodes, anilist_data.averageScore 
+                FROM mal_data JOIN anilist_data ON mal_data.idMAL = anilist_data.idMAL 
+                WHERE mal_data.id > {last_id} ORDER BY mal_data.id LIMIT 25'''
+
+    # Execute query and insert data into the table
+    for row in cursor.execute(query):
+        cursor.execute("INSERT INTO data_join (id, num_episodes, mean_score, episodes, averageScore) VALUES (?, ?, ?, ?, ?)",
+                       (row[0], row[1], row[2], row[3], row[4]))
 
     # Commit changes and close the connection
     conn.commit()
@@ -267,10 +321,12 @@ def scatter_avg_popularity(db_file):
 
 def main():
     anilistJSON1, anilistJSON2 = anilist_pull()
-    print(anilistJSON1, anilistJSON2)
+    # #print(anilistJSON1, anilistJSON2)
     createBDfile(anilistJSON1, anilistJSON2)
     malJSON = get_mal_ranking_data()
+    #print(malJSON)
     add_MAL_bd(malJSON)
-    scatter_avg_popularity('anilist_data.db')
-    scatter_avg_popularity_COMBINED('anilist_data.db')
+    #add_data_join()
+    #scatter_avg_popularity('anilist_data.db')
+    #scatter_avg_popularity_COMBINED('anilist_data.db')
 main()
